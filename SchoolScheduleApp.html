@@ -1,8 +1,8 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Master Scheduler (Shareable)</title>
+    <title>Master Scheduler (Academic + Duty)</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
@@ -14,20 +14,22 @@
         header { background: white; padding: 0 20px; height: 60px; border-bottom: 1px solid #cbd5e0; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; z-index: 100; }
         h2 { margin: 0; font-size: 1.2rem; color: var(--primary); display: flex; flex-direction: column; line-height: 1.1; }
         
-        .tabs { display: flex; background: #e2e8f0; padding: 3px; border-radius: 6px; gap: 4px; }
-        .tab { border: none; background: none; padding: 5px 15px; font-weight: 700; color: #64748b; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+        .tabs { display: flex; background: #e2e8f0; padding: 3px; border-radius: 6px; gap: 2px; }
+        .tab { border: none; background: none; padding: 5px 12px; font-weight: 700; color: #64748b; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
+        .tab:hover { background: rgba(255,255,255,0.6); }
         .tab.active { background: white; color: var(--accent); box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        
+        /* Separator line in tabs */
+        .tab-sep { width: 1px; background: #cbd5e0; margin: 0 4px; }
 
         .controls { display: flex; gap: 8px; }
         button { height: 30px; padding: 0 12px; border: none; border-radius: 4px; font-weight: 600; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 5px; color: white; background: var(--accent); }
         button:hover { opacity: 0.9; }
-        
-        /* BUTTON COLORS */
         .btn-sec { background: #64748b; }
         .btn-imp { background: #8b5cf6; }
         .btn-csv { background: #10b981; }
         .btn-doc { background: #f97316; }
-        .btn-share { background: #f59e0b; } /* New Share Button Color */
+        .btn-share { background: #f59e0b; }
 
         /* LAYOUT */
         .layout { display: flex; flex: 1; overflow: hidden; }
@@ -58,6 +60,8 @@
         .sys-lunch { background: #334155; color: white; }
         .sys-prep { background: repeating-linear-gradient(45deg, #e2e8f0, #e2e8f0 10px, #f1f5f9 10px, #f1f5f9 20px); color: #475569; }
         .sys-meet { background: #7c3aed; color: white; }
+        /* NEW DUTY COLORS */
+        .sys-duty { background: #059669; color: white; border-color: #047857; }
 
         /* GRID */
         .grid-area { flex: 1; overflow: auto; padding: 20px; }
@@ -112,15 +116,20 @@
 
 <header>
     <h2>Scheduler <small style="font-size:0.7rem; font-weight:400; color:#666;"><span id="status-dot"></span><span id="status-msg">Offline</span></small></h2>
+    
     <div class="tabs">
         <button class="tab active" onclick="setDay('Mon')">MON</button>
         <button class="tab" onclick="setDay('Tue')">TUE</button>
         <button class="tab" onclick="setDay('Wed')">WED</button>
         <button class="tab" onclick="setDay('Thu')">THU</button>
         <button class="tab" onclick="setDay('Fri')">FRI</button>
+        <div class="tab-sep"></div>
+        <button class="tab" onclick="setDay('Duty')">DUTY</button>
+        <button class="tab" onclick="setDay('Recess')">RECESS</button>
     </div>
+
     <div class="controls">
-        <button class="btn-share" onclick="shareReadOnly()">🔗 Share View</button>
+        <button class="btn-share" onclick="shareReadOnly()">🔗 Share</button>
         <button class="btn-doc" onclick="copyToClipboard()">Copy</button>
         <button class="btn-csv" onclick="exportCSV()">CSV</button>
         <button class="btn-imp" onclick="showModal()">Import</button>
@@ -149,8 +158,7 @@
     <div class="modal">
         <h3>Bulk Import</h3>
         <p style="font-size:0.8rem; color:#666; margin:0;">
-            <strong>For Classes:</strong> Paste list. I will find the grade automatically.<br>
-            <em>Examples: "Smith 4", "Jones, 5", "Doe K"</em>
+            <strong>For Classes:</strong> Paste list (e.g. <em>Smith 4</em>)
         </p>
         <select id="imp-type">
             <option value="c">Classes (Smart Detect)</option>
@@ -172,14 +180,15 @@
     // -----------------------------------------------------------
     const firebaseConfig = {
         apiKey: "AIzaSyBYEaVQnOZMBk8sCyoEVQXNuEoxZ54NFYo",
-          authDomain: "schoolschedule-d83d1.firebaseapp.com",
-          databaseURL: "https://schoolschedule-d83d1-default-rtdb.firebaseio.com",
-          projectId: "schoolschedule-d83d1",
-          storageBucket: "schoolschedule-d83d1.firebasestorage.app",
-          messagingSenderId: "704127831300",
-          appId: "1:704127831300:web:662bc8c704583a49605451",
-          measurementId: "G-CZLW6LW52E"
-        };
+        authDomain: "schoolschedule-d83d1.firebaseapp.com",
+        databaseURL: "https://schoolschedule-d83d1-default-rtdb.firebaseio.com",
+        projectId: "schoolschedule-d83d1",
+        storageBucket: "schoolschedule-d83d1.firebasestorage.app",
+        messagingSenderId: "704127831300",
+        appId: "1:704127831300:web:662bc8c704583a49605451",
+        measurementId: "G-CZLW6LW52E"
+    };
+
     if(firebase.apps.length === 0) firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
@@ -188,14 +197,14 @@
         teachers: [{id:'t1',name:'Art'},{id:'t2',name:'Music'},{id:'t3',name:'PE'}],
         times: [{id:'tm1',label:'8:30 - 9:10'},{id:'tm2',label:'9:15 - 9:55'}],
         classes: [],
-        assignments: { Mon:{}, Tue:{}, Wed:{}, Thu:{}, Fri:{} }
+        // ADDED 'Duty' and 'Recess' to the assignments object
+        assignments: { Mon:{}, Tue:{}, Wed:{}, Thu:{}, Fri:{}, Duty:{}, Recess:{} }
     };
     
     let data = JSON.parse(JSON.stringify(DEFAULTS));
     let day = 'Mon';
     let selection = null;
 
-    // CHECK FOR READ ONLY MODE
     const urlParams = new URLSearchParams(window.location.search);
     const isReadOnly = urlParams.get('mode') === 'view';
     if (isReadOnly) document.body.classList.add('readonly');
@@ -208,7 +217,12 @@
             if(val) {
                 data = val;
                 if(!data.assignments) data.assignments = DEFAULTS.assignments;
-                ['Mon','Tue','Wed','Thu','Fri'].forEach(d => { if(!data.assignments[d]) data.assignments[d]={}; });
+                
+                // Ensure all tabs exist in data
+                ['Mon','Tue','Wed','Thu','Fri','Duty','Recess'].forEach(d => { 
+                    if(!data.assignments[d]) data.assignments[d]={}; 
+                });
+                
                 if(!data.teachers) data.teachers = [];
                 if(!data.times) data.times = [];
                 if(!data.classes) data.classes = [];
@@ -239,16 +253,12 @@
         render();
     }
 
-    // --- SHARE FUNCTION ---
     function shareReadOnly() {
-        // Gets current URL (without parameters) and adds ?mode=view
         const url = window.location.protocol + "//" + window.location.host + window.location.pathname + "?mode=view";
-        navigator.clipboard.writeText(url).then(() => {
-            alert("✅ Read-Only Link Copied!\n\nSend this to staff. They will see updates live but cannot edit.");
-        });
+        navigator.clipboard.writeText(url).then(() => alert("✅ Link Copied! Send to staff."));
     }
 
-    // --- CORE LOGIC ---
+    // --- LOGIC ---
     function assign(slotKey, itemId) {
         if(!itemId) return;
         if (!itemId.startsWith('SYS_')) {
@@ -279,26 +289,13 @@
         const sb = document.getElementById('sb-content');
         sb.innerHTML = '';
 
-        // Sys Blocks
-        const sysDiv = document.createElement('div');
-        sysDiv.innerHTML = `<div class="group-header">Planning</div><div class="chip-grid" id="sys-grid"></div>`;
-        sb.appendChild(sysDiv);
-        ['LUNCH','PREP','MEET'].forEach(t => {
-            const d = document.createElement('div');
-            d.className = `chip sys ${t==='LUNCH'?'sys-lunch':(t==='PREP'?'sys-prep':'sys-meet')}`;
-            d.innerText = t;
-            d.draggable = true;
-            d.ondragstart = (e) => { 
-                e.dataTransfer.setData('id', `SYS_${t}_${Date.now()}`);
-                e.dataTransfer.effectAllowed = 'copy';
-            };
-            const newId = `NEW_SYS_${t}`;
-            if(selection === newId) d.classList.add('selected');
-            d.onclick = () => { selection = (selection===newId)?null:newId; render(); };
-            sysDiv.querySelector('#sys-grid').appendChild(d);
-        });
+        // 1. Planning Blocks
+        createSidebarGroup(sb, 'Planning', ['LUNCH','PREP','MEET']);
+        
+        // 2. Duty Tags (NEW)
+        createSidebarGroup(sb, 'Duty Tags', ['Cafeteria','Playground','Hallway','Bus','Gym'], true);
 
-        // Classes
+        // 3. Classes
         const grades = [...new Set(data.classes.map(c=>c.grade))].sort((a,b) => {
             if(a === 'K') return -1; if(b === 'K') return 1;
             if(a === '?') return 1; if(b === '?') return -1;
@@ -334,212 +331,8 @@
         renderGrid();
     }
 
-    function renderGrid() {
-        const thead = document.getElementById('thead');
-        const tbody = document.getElementById('tbody');
-        const dayMap = data.assignments[day] || {};
-
-        thead.innerHTML = '';
-        const hr = document.createElement('tr');
-        const corn = document.createElement('th');
-        corn.className = 'time-head corner'; 
-        corn.innerText = 'Time';
-        hr.appendChild(corn);
-
-        data.teachers.forEach((t, idx) => {
-            const th = document.createElement('th');
-            th.innerText = t.name;
-            th.draggable = true;
-            th.ondragstart = (e) => { e.dataTransfer.setData('colIdx', idx); };
-            th.ondragover = (e) => { e.preventDefault(); th.classList.add('drag-over'); };
-            th.ondragleave = () => th.classList.remove('drag-over');
-            th.ondrop = (e) => {
-                e.preventDefault(); th.classList.remove('drag-over');
-                const f = e.dataTransfer.getData('colIdx');
-                if(f) moveCol(parseInt(f), idx);
-            };
-            th.ondblclick = () => { const n=prompt('Rename:',t.name); if(n){t.name=n;save();render();} };
-            th.oncontextmenu = (e) => { e.preventDefault(); if(confirm('Delete col?')){ data.teachers=data.teachers.filter(x=>x.id!==t.id); save(); render();} };
-            hr.appendChild(th);
-        });
-        thead.appendChild(hr);
-
-        tbody.innerHTML = '';
-        data.times.forEach(tm => {
-            const tr = document.createElement('tr');
-            const tdc = document.createElement('td');
-            tdc.className = 'time-head';
-            tdc.innerText = tm.label;
-            tdc.ondblclick = () => { const n=prompt('Rename:',tm.label); if(n){tm.label=n;save();render();} };
-            tdc.oncontextmenu = (e) => { e.preventDefault(); if(confirm('Delete row?')){ data.times=data.times.filter(x=>x.id!==tm.id); save(); render();} };
-            tr.appendChild(tdc);
-
-            data.teachers.forEach(t => {
-                const td = document.createElement('td');
-                const key = `${t.id}_${tm.id}`;
-                
-                const slot = document.createElement('div');
-                slot.className = 'slot';
-                if(selection) slot.classList.add('target-active');
-
-                slot.ondragover = (e) => { e.preventDefault(); e.currentTarget.classList.add('drag-over'); };
-                slot.ondragleave = (e) => { e.currentTarget.classList.remove('drag-over'); };
-                slot.ondrop = (e) => {
-                    e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('drag-over');
-                    const id = e.dataTransfer.getData('id');
-                    assign(key, id);
-                };
-
-                slot.onclick = () => {
-                    if(selection) {
-                        let finalId = selection;
-                        if(selection.startsWith('NEW_SYS_')) {
-                            finalId = `SYS_${selection.split('_')[2]}_${Date.now()}`;
-                        }
-                        assign(key, finalId);
-                    }
-                };
-
-                const val = dayMap[key];
-                if(val) {
-                    if(val.startsWith('SYS_')) {
-                        const type = val.split('_')[1];
-                        const css = type==='LUNCH'?'sys-lunch':(type==='PREP'?'sys-prep':'sys-meet');
-                        slot.innerHTML = `<div class="chip sys ${css}">${type}</div>`;
-                    } else {
-                        const c = data.classes.find(x => x.id === val);
-                        if(c) {
-                            slot.innerHTML = `<div class="chip g-${c.grade}" onclick="event.stopPropagation();toggleSel('${c.id}')">${c.name}</div>`;
-                        }
-                    }
-                    slot.oncontextmenu = (e) => { e.preventDefault(); unassign(key); };
-                }
-                td.appendChild(slot);
-                tr.appendChild(td);
-            });
-            tbody.appendChild(tr);
-        });
-    }
-
-    function toggleSel(id) {
-        selection = (selection===id) ? null : id;
-        render();
-    }
-
-    // --- UTILS ---
-    function showModal() { document.getElementById('modal').style.display='flex'; }
-    function closeModal() { document.getElementById('modal').style.display='none'; }
-    
-    function runImport() {
-        const type = document.getElementById('imp-type').value;
-        const txt = document.getElementById('imp-data').value;
-        const lines = txt.split('\n').map(s=>s.trim()).filter(s=>s);
-        
-        if(type==='t') lines.forEach(n=>data.teachers.push({id:'t'+Date.now()+Math.random(), name:n}));
-        else if(type==='tm') lines.forEach(n=>data.times.push({id:'tm'+Date.now()+Math.random(), label:n}));
-        else if(type==='c') {
-            lines.forEach(line => {
-                let name = "", grade = "?";
-                if(line.includes(',')) {
-                    const p = line.split(',');
-                    name = p[0].trim();
-                    grade = p[1] ? p[1].trim() : "?";
-                } else {
-                    const parts = line.split(/\s+/);
-                    if(parts.length > 1) { grade = parts.pop(); name = parts.join(" "); } 
-                    else { name = parts[0]; grade = "?"; }
-                }
-                grade = grade.replace(/grade/i, '').trim();
-                if(grade === '') grade = '?';
-                if(name) data.classes.push({id:'c'+Date.now()+Math.random(), name:name, grade:grade});
-            });
-        }
-        save(); closeModal(); document.getElementById('imp-data').value=''; render();
-    }
-
-    function add(type) {
-        if(type==='class') {
-            const n=prompt("Name:"); const g=prompt("Grade:","K");
-            if(n) { data.classes.push({id:'c'+Date.now(), name:n, grade:g||'K'}); save(); render(); }
-        } else if(type==='teacher') {
-            const n=prompt("Name:"); if(n){ data.teachers.push({id:'t'+Date.now(), name:n}); save(); render(); }
-        } else {
-            const n=prompt("Time:"); if(n){ data.times.push({id:'tm'+Date.now(), label:n}); save(); render(); }
-        }
-    }
-
-    function delClass(id) {
-        data.classes = data.classes.filter(x => x.id !== id);
-        ['Mon','Tue','Wed','Thu','Fri'].forEach(d => {
-            const dayMap = data.assignments[d];
-            for(const k in dayMap) { if(dayMap[k] === id) delete dayMap[k]; }
-        });
-        save(); render();
-    }
-
-    function delGrade(g) {
-        if(!confirm(`Delete all Grade ${g} classes?`)) return;
-        const ids = data.classes.filter(c=>c.grade===g).map(c=>c.id);
-        data.classes = data.classes.filter(c=>c.grade!==g);
-        ['Mon','Tue','Wed','Thu','Fri'].forEach(d => {
-            for(let k in data.assignments[d]) if(ids.includes(data.assignments[d][k])) delete data.assignments[d][k];
-        });
-        save(); render();
-    }
-
-    function resetDB() { if(confirm('Delete EVERYTHING and start fresh?')) { data=JSON.parse(JSON.stringify(DEFAULTS)); save(); } }
-
-    function copyToClipboard() {
-        const colors = {'K':'#ef5350','1':'#3b82f6','2':'#22c55e','3':'#f59e0b','4':'#a855f7','5':'#64748b','6':'#06b6d4','7':'#78716c','8':'#db2777'};
-        let h = `<h2 style="font-family:sans-serif">${day} Schedule</h2><table border="1" style="border-collapse:collapse;font-family:sans-serif;font-size:10pt;width:100%">`;
-        h += `<tr style="background:#eee;font-weight:bold"><td>Time</td>${data.teachers.map(t=>`<td>${t.name}</td>`).join('')}</tr>`;
-        const dayMap = data.assignments[day]||{};
-        data.times.forEach(tm => {
-            h += `<tr><td style="background:#f8fafc;font-weight:bold">${tm.label}</td>`;
-            data.teachers.forEach(t => {
-                const val = dayMap[`${t.id}_${tm.id}`];
-                let c='', s='';
-                if(val) {
-                    if(val.startsWith('SYS_')) {
-                        let type=val.split('_')[1];
-                        s = type==='LUNCH'?'background:#334155;color:#fff':(type==='PREP'?'background:#eee':'background:#7c3aed;color:#fff');
-                        c = type;
-                    } else {
-                        let cls = data.classes.find(x=>x.id===val);
-                        if(cls) { c=cls.name; let col=colors[cls.grade]||'#ccc'; s=`border-left:4px solid ${col};background:${col}20`; }
-                    }
-                }
-                h += `<td style="padding:4px;${s}">${c}</td>`;
-            });
-            h += '</tr>';
-        });
-        h += '</table>';
-        const el = document.getElementById('hidden-export'); el.innerHTML=h;
-        const r = document.createRange(); r.selectNode(el);
-        window.getSelection().removeAllRanges(); window.getSelection().addRange(r);
-        document.execCommand('copy'); alert('Copied!');
-    }
-
-    function exportCSV() {
-        let csv = `Time,${data.teachers.map(t=>`"${t.name}"`).join(',')}\n`;
-        const dayMap = data.assignments[day]||{};
-        data.times.forEach(tm => {
-            let r = [`"${tm.label}"`];
-            data.teachers.forEach(t => {
-                const val = dayMap[`${t.id}_${tm.id}`];
-                let c = '';
-                if(val && val.startsWith('SYS_')) c = val.split('_')[1];
-                else if(val) { const cl = data.classes.find(x=>x.id===val); if(cl) c=cl.name; }
-                r.push(`"${c}"`);
-            });
-            csv += r.join(',') + '\n';
-        });
-        const b = new Blob([csv],{type:'text/csv'});
-        const a = document.createElement('a'); a.href=URL.createObjectURL(b); a.download=`schedule_${day}.csv`;
-        document.body.appendChild(a); a.click(); a.remove();
-    }
-
-    init();
-</script>
-</body>
-</html>
+    // Helper to create Sys/Duty blocks
+    function createSidebarGroup(parent, title, items, isDuty=false) {
+        const div = document.createElement('div');
+        div.innerHTML = `<div class="group-header">${title}</div><div class="chip-grid"></div>`;
+        const grid = div.querySelector('.chip-
