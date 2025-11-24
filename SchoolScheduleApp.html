@@ -178,18 +178,18 @@
     // -----------------------------------------------------------
     // 1. FIREBASE CONFIG (Paste Here)
     // -----------------------------------------------------------
-    const firebaseConfig = {
-        apiKey: "AIzaSyBYEaVQnOZMBk8sCyoEVQXNuEoxZ54NFYo",
-        authDomain: "schoolschedule-d83d1.firebaseapp.com",
-        databaseURL: "https://schoolschedule-d83d1-default-rtdb.firebaseio.com",
-        projectId: "schoolschedule-d83d1",
-        storageBucket: "schoolschedule-d83d1.firebasestorage.app",
-        messagingSenderId: "704127831300",
-        appId: "1:704127831300:web:662bc8c704583a49605451",
-        measurementId: "G-CZLW6LW52E"
+    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+        const firebaseConfig = {
+          apiKey: "AIzaSyBYEaVQnOZMBk8sCyoEVQXNuEoxZ54NFYo",
+          authDomain: "schoolschedule-d83d1.firebaseapp.com",
+          databaseURL: "https://schoolschedule-d83d1-default-rtdb.firebaseio.com",
+          projectId: "schoolschedule-d83d1",
+          storageBucket: "schoolschedule-d83d1.firebasestorage.app",
+          messagingSenderId: "704127831300",
+          appId: "1:704127831300:web:662bc8c704583a49605451",
+          measurementId: "G-CZLW6LW52E"
         };
-
-
+    
     if(firebase.apps.length === 0) firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
