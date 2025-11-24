@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -187,7 +187,8 @@
         messagingSenderId: "704127831300",
         appId: "1:704127831300:web:662bc8c704583a49605451",
         measurementId: "G-CZLW6LW52E"
-    };
+        };
+
 
     if(firebase.apps.length === 0) firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
@@ -335,4 +336,239 @@
     function createSidebarGroup(parent, title, items, isDuty=false) {
         const div = document.createElement('div');
         div.innerHTML = `<div class="group-header">${title}</div><div class="chip-grid"></div>`;
-        const grid = div.querySelector('.chip-
+        const grid = div.querySelector('.chip-grid');
+        
+        items.forEach(t => {
+            const d = document.createElement('div');
+            // Use different styles for planning vs duty
+            let css = 'sys-meet'; 
+            if(!isDuty) css = t==='LUNCH'?'sys-lunch':(t==='PREP'?'sys-prep':'sys-meet');
+            else css = 'sys-duty'; // Green for Duty
+
+            d.className = `chip sys ${css}`;
+            d.innerText = t;
+            d.draggable = true;
+            d.ondragstart = (e) => { 
+                e.dataTransfer.setData('id', `SYS_${t}_${Date.now()}`);
+                e.dataTransfer.effectAllowed = 'copy';
+            };
+            const newId = `NEW_SYS_${t}`;
+            if(selection === newId) d.classList.add('selected');
+            d.onclick = () => { selection = (selection===newId)?null:newId; render(); };
+            grid.appendChild(d);
+        });
+        parent.appendChild(div);
+    }
+
+    function renderGrid() {
+        const thead = document.getElementById('thead');
+        const tbody = document.getElementById('tbody');
+        const dayMap = data.assignments[day] || {};
+
+        thead.innerHTML = '';
+        const hr = document.createElement('tr');
+        const corn = document.createElement('th');
+        corn.className = 'time-head corner'; 
+        corn.innerText = 'Time';
+        hr.appendChild(corn);
+
+        data.teachers.forEach((t, idx) => {
+            const th = document.createElement('th');
+            th.innerText = t.name;
+            th.draggable = true;
+            th.ondragstart = (e) => { e.dataTransfer.setData('colIdx', idx); };
+            th.ondragover = (e) => { e.preventDefault(); th.classList.add('drag-over'); };
+            th.ondragleave = () => th.classList.remove('drag-over');
+            th.ondrop = (e) => {
+                e.preventDefault(); th.classList.remove('drag-over');
+                const f = e.dataTransfer.getData('colIdx');
+                if(f) moveCol(parseInt(f), idx);
+            };
+            th.ondblclick = () => { const n=prompt('Rename:',t.name); if(n){t.name=n;save();render();} };
+            th.oncontextmenu = (e) => { e.preventDefault(); if(confirm('Delete col?')){ data.teachers=data.teachers.filter(x=>x.id!==t.id); save(); render();} };
+            hr.appendChild(th);
+        });
+        thead.appendChild(hr);
+
+        tbody.innerHTML = '';
+        data.times.forEach(tm => {
+            const tr = document.createElement('tr');
+            const tdc = document.createElement('td');
+            tdc.className = 'time-head';
+            tdc.innerText = tm.label;
+            tdc.ondblclick = () => { const n=prompt('Rename:',tm.label); if(n){tm.label=n;save();render();} };
+            tdc.oncontextmenu = (e) => { e.preventDefault(); if(confirm('Delete row?')){ data.times=data.times.filter(x=>x.id!==tm.id); save(); render();} };
+            tr.appendChild(tdc);
+
+            data.teachers.forEach(t => {
+                const td = document.createElement('td');
+                const key = `${t.id}_${tm.id}`;
+                
+                const slot = document.createElement('div');
+                slot.className = 'slot';
+                if(selection) slot.classList.add('target-active');
+
+                slot.ondragover = (e) => { e.preventDefault(); e.currentTarget.classList.add('drag-over'); };
+                slot.ondragleave = (e) => { e.currentTarget.classList.remove('drag-over'); };
+                slot.ondrop = (e) => {
+                    e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('drag-over');
+                    const id = e.dataTransfer.getData('id');
+                    assign(key, id);
+                };
+
+                slot.onclick = () => {
+                    if(selection) {
+                        let finalId = selection;
+                        if(selection.startsWith('NEW_SYS_')) {
+                            finalId = `SYS_${selection.split('_')[2]}_${Date.now()}`;
+                        }
+                        assign(key, finalId);
+                    }
+                };
+
+                const val = dayMap[key];
+                if(val) {
+                    if(val.startsWith('SYS_')) {
+                        const type = val.split('_')[1];
+                        // Handle coloring for various sys blocks
+                        let css = 'sys-meet';
+                        if(type==='LUNCH') css='sys-lunch';
+                        else if(type==='PREP') css='sys-prep';
+                        else if(['Cafeteria','Playground','Hallway','Bus','Gym'].includes(type)) css='sys-duty';
+
+                        slot.innerHTML = `<div class="chip sys ${css}">${type}</div>`;
+                    } else {
+                        const c = data.classes.find(x => x.id === val);
+                        if(c) {
+                            slot.innerHTML = `<div class="chip g-${c.grade}" onclick="event.stopPropagation();toggleSel('${c.id}')">${c.name}</div>`;
+                        }
+                    }
+                    slot.oncontextmenu = (e) => { e.preventDefault(); unassign(key); };
+                }
+                td.appendChild(slot);
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+    }
+
+    function toggleSel(id) {
+        selection = (selection===id) ? null : id;
+        render();
+    }
+
+    // --- UTILS ---
+    function showModal() { document.getElementById('modal').style.display='flex'; }
+    function closeModal() { document.getElementById('modal').style.display='none'; }
+    
+    function runImport() {
+        const type = document.getElementById('imp-type').value;
+        const txt = document.getElementById('imp-data').value;
+        const lines = txt.split('\n').map(s=>s.trim()).filter(s=>s);
+        
+        if(type==='t') lines.forEach(n=>data.teachers.push({id:'t'+Date.now()+Math.random(), name:n}));
+        else if(type==='tm') lines.forEach(n=>data.times.push({id:'tm'+Date.now()+Math.random(), label:n}));
+        else if(type==='c') {
+            lines.forEach(line => {
+                let name = "", grade = "?";
+                if(line.includes(',')) {
+                    const p = line.split(','); name = p[0].trim(); grade = p[1] ? p[1].trim() : "?";
+                } else {
+                    const parts = line.split(/\s+/);
+                    if(parts.length > 1) { grade = parts.pop(); name = parts.join(" "); } 
+                    else { name = parts[0]; grade = "?"; }
+                }
+                grade = grade.replace(/grade/i, '').trim();
+                if(grade === '') grade = '?';
+                if(name) data.classes.push({id:'c'+Date.now()+Math.random(), name:name, grade:grade});
+            });
+        }
+        save(); closeModal(); document.getElementById('imp-data').value=''; render();
+    }
+
+    function add(type) {
+        if(type==='class') {
+            const n=prompt("Name:"); const g=prompt("Grade:","K");
+            if(n) { data.classes.push({id:'c'+Date.now(), name:n, grade:g||'K'}); save(); render(); }
+        } else if(type==='teacher') {
+            const n=prompt("Name:"); if(n){ data.teachers.push({id:'t'+Date.now(), name:n}); save(); render(); }
+        } else {
+            const n=prompt("Time:"); if(n){ data.times.push({id:'tm'+Date.now(), label:n}); save(); render(); }
+        }
+    }
+
+    function delClass(id) {
+        data.classes = data.classes.filter(x => x.id !== id);
+        ['Mon','Tue','Wed','Thu','Fri','Duty','Recess'].forEach(d => {
+            const dayMap = data.assignments[d];
+            for(const k in dayMap) { if(dayMap[k] === id) delete dayMap[k]; }
+        });
+        save(); render();
+    }
+
+    function delGrade(g) {
+        if(!confirm(`Delete all Grade ${g} classes?`)) return;
+        const ids = data.classes.filter(c=>c.grade===g).map(c=>c.id);
+        data.classes = data.classes.filter(c=>c.grade!==g);
+        ['Mon','Tue','Wed','Thu','Fri','Duty','Recess'].forEach(d => {
+            for(let k in data.assignments[d]) if(ids.includes(data.assignments[d][k])) delete data.assignments[d][k];
+        });
+        save(); render();
+    }
+
+    function resetDB() { if(confirm('Delete EVERYTHING and start fresh?')) { data=JSON.parse(JSON.stringify(DEFAULTS)); save(); } }
+
+    function copyToClipboard() {
+        let h = `<h2 style="font-family:sans-serif">${day} Schedule</h2><table border="1" style="border-collapse:collapse;font-family:sans-serif;font-size:10pt;width:100%">`;
+        h += `<tr style="background:#eee;font-weight:bold"><td>Time</td>${data.teachers.map(t=>`<td>${t.name}</td>`).join('')}</tr>`;
+        const dayMap = data.assignments[day]||{};
+        data.times.forEach(tm => {
+            h += `<tr><td style="background:#f8fafc;font-weight:bold">${tm.label}</td>`;
+            data.teachers.forEach(t => {
+                const val = dayMap[`${t.id}_${tm.id}`];
+                let c='', s='';
+                if(val) {
+                    if(val.startsWith('SYS_')) {
+                        let type=val.split('_')[1];
+                        s = type==='LUNCH'?'background:#334155;color:#fff':(type==='PREP'?'background:#eee':'background:#7c3aed;color:#fff');
+                        if(['Cafeteria','Playground','Hallway','Bus','Gym'].includes(type)) s='background:#059669;color:#fff';
+                        c = type;
+                    } else {
+                        let cls = data.classes.find(x=>x.id===val);
+                        if(cls) { c=cls.name; s=`border-left:4px solid #ccc;background:#eee`; }
+                    }
+                }
+                h += `<td style="padding:4px;${s}">${c}</td>`;
+            });
+            h += '</tr>';
+        });
+        h += '</table>';
+        const el = document.getElementById('hidden-export'); el.innerHTML=h;
+        const r = document.createRange(); r.selectNode(el);
+        window.getSelection().removeAllRanges(); window.getSelection().addRange(r);
+        document.execCommand('copy'); alert('Copied!');
+    }
+
+    function exportCSV() {
+        let csv = `Time,${data.teachers.map(t=>`"${t.name}"`).join(',')}\n`;
+        const dayMap = data.assignments[day]||{};
+        data.times.forEach(tm => {
+            let r = [`"${tm.label}"`];
+            data.teachers.forEach(t => {
+                const val = dayMap[`${t.id}_${tm.id}`];
+                let c = '';
+                if(val && val.startsWith('SYS_')) c = val.split('_')[1];
+                else if(val) { const cl = data.classes.find(x=>x.id===val); if(cl) c=cl.name; }
+                r.push(`"${c}"`);
+            });
+            csv += r.join(',') + '\n';
+        });
+        const b = new Blob([csv],{type:'text/csv'});
+        const a = document.createElement('a'); a.href=URL.createObjectURL(b); a.download=`schedule_${day}.csv`;
+        document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    init();
+</script>
+</body>
+</html>
